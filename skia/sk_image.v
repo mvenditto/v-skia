@@ -1,6 +1,9 @@
 module skia
 
+
 #include "sk_image.h"
+
+
 fn C.sk_image_new_raster_copy(a0 &C.sk_imageinfo_t, pixels voidptr, row_bytes C.size_t) &C.sk_image_t
 
 fn C.sk_image_new_raster_copy_with_pixmap(pixmap &C.sk_pixmap_t) &C.sk_image_t
@@ -29,9 +32,9 @@ fn C.sk_image_make_raster_image(cimage &C.sk_image_t) &C.sk_image_t
 
 fn C.sk_image_make_with_filter(cimage &C.sk_image_t, filter &C.sk_imagefilter_t, subset &C.sk_irect_t, clip_bounds &C.sk_irect_t, out_subset &C.sk_irect_t, out_offset &C.sk_ipoint_t) &C.sk_image_t
 
-fn C.sk_image_ref(a0 &C.sk_image_t)
+fn C.sk_image_ref(a0 &C.sk_image_t) 
 
-fn C.sk_image_unref(a0 &C.sk_image_t)
+fn C.sk_image_unref(a0 &C.sk_image_t) 
 
 fn C.sk_image_get_width(a0 &C.sk_image_t) int
 
@@ -68,3 +71,47 @@ fn C.sk_image_ref_encoded(a0 &C.sk_image_t) &C.sk_data_t
 fn C.sk_image_encode(a0 &C.sk_image_t) &C.sk_data_t
 
 fn C.sk_image_encode_specific(cimage &C.sk_image_t, encoder C.sk_encoded_image_format_t, quality int) &C.sk_data_t
+
+pub fn (i &C.sk_image_t) unref()  {
+	C.sk_image_unref(i)
+}
+
+pub fn (i &C.sk_image_t) encode() &C.sk_data_t {
+	return C.sk_image_encode(i)
+}
+
+pub fn (i &C.sk_image_t) get_width() int {
+	return C.sk_image_get_width(i)
+}
+
+pub fn (i &C.sk_image_t) get_height() int {
+	return C.sk_image_get_height(i)
+}
+
+pub fn (i &C.sk_image_t) get_unique_id() u32 {
+	return C.sk_image_get_unique_id(i)
+}
+
+pub fn (i &C.sk_image_t) get_alpha_type() SkAlphatype {
+	return SkAlphatype(C.sk_image_get_alpha_type(i))
+}
+
+pub fn (i &C.sk_image_t) get_color_type() SkColortype {
+	return SkColortype(C.sk_image_get_color_type(i))
+}
+
+pub fn (i &C.sk_image_t) get_colorspace() &C.sk_colorspace_t {
+	return C.sk_image_get_colorspace(i)
+}
+
+pub fn (i &C.sk_image_t) is_alpha_only() bool {
+	return C.sk_image_is_alpha_only(i)
+}
+
+pub fn (i &C.sk_image_t) is_texture_backed() bool {
+	return C.sk_image_is_texture_backed(i)
+}
+
+pub fn (i &C.sk_image_t) is_lazy_generated() bool {
+	return C.sk_image_is_lazy_generated(i)
+}

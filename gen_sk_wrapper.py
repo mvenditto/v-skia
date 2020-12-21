@@ -175,6 +175,8 @@ def to_v_camel_case(name):
     n = camelize(name)
     if n[-1] == 'T':
         return n[:-1]
+    if n.endswith('T*'):
+        return '&' + n[:-2]
     return n
 
 def to_v_snake_case(name):
@@ -219,9 +221,10 @@ def c_to_v_type(type_name, preserve_case=True):
 
 def gen_type_alias(typee):
     _, alias, type_name = typee
-    alias = to_v_camel_case(alias)
+    alias2 = to_v_camel_case(alias)
     type_name = c_to_v_type(type_name)
-    return 'pub type {0} = {1}'.format(alias, type_name)
+    return 'pub type {0} = {1}'.format(alias2, type_name) + \
+           '\npub struct C.{0} {{ }}'.format(alias)
 
 def gen_struct(struct):
     _, name, fields = struct
@@ -256,7 +259,6 @@ def gen_func(func):
     else:
         ret = c_to_v_type(ret)
     
-    
     if not any(args):
         return 'fn C.{0}() {1}'.format(name, ret)
 
@@ -275,6 +277,7 @@ def gen_enum(enum):
     const_map = { x[0]: x[2] for x in filter(lambda v: v[1]=='const', vals) }
     body = []
 
+    """
     # workaround for: https://github.com/vlang/v/issues/3077
 
     c_name = name
@@ -296,9 +299,22 @@ def gen_enum(enum):
         body.append('\t{0} = C.{1}'.format(alias_name, x_name))
 
     """
+
+
+    prefix = name
+    if prefix.endswith('_t'):
+        prefix = name[:-2]
+    
     for x in vals:
         x_name, kind, value = x
         x_name = to_v_snake_case(x_name)
+        
+        if x_name.endswith(prefix):
+            x_name = x_name[:-len(prefix)-1]
+        
+        if x_name in ('none', 'union'):
+            x_name = '@'+x_name
+            
         if kind == 'deflt':
             body.append('\t' + x_name)
         elif kind == 'const':
@@ -311,8 +327,8 @@ def gen_enum(enum):
            
     body = '\n'.join(body)
     
-    return 'pub enum {0} {{\n{1}\n}}'.format(name, body)
-    """
+    return 'pub enum {0} {{\n{1}\n}}'.format(to_v_camel_case(name), body)
+    
 
     return 'const (\n' + '\n'.join(body) + '\n)\n'
 
@@ -335,13 +351,101 @@ CODEGEN = {
     'func': gen_func
 }
 
+def gen_v_method(func, enums_cache, types_cache):
+    _, name, ret, args = func
+    if len(args) <= 0:
+        print('warn: no args, at least receiver needed to gen method.')
+        return None
+
+    if not name.startswith('sk_'):
+        print('skip: no skia func')
+        return None
+
+    if any(list(filter(lambda x: x[1].startswith('gr_'), args))):
+        print('skip: unmanaged prefix gr_')
+        return None
+
+    recvr_type = args[0][1]
+
+    if not recvr_type.startswith('sk_'):
+        # print("skip. '{0}' not a skia type".format(recvr_type))
+        # print(recvr_type, name)
+        return None
+    
+    recvr_name = recvr_type[3].lower()
+    receiver = recvr_name + ' ' + c_to_v_type(recvr_type)
+
+    name_toks = name.split('_')
+    method_name = '_'.join(name_toks[2:])
+    op = name_toks[2]
+
+    if op not in ('get', 'set', 'is', 'can', 'unref', 'clone', 'delete'):
+        return None
+
+    def map_param(p):
+        name, type_name = p
+        name = to_v_snake_case(name)
+        
+        if type_name in enums_cache:
+            type_name = to_v_camel_case(type_name)
+        elif type_name in types_cache:
+            type_name = to_v_camel_case(type_name)
+        else:
+            type_name = c_to_v_type(type_name)
+        if type_name == 'C.size_t':
+            type_name = 'u64'
+        elif type_name == '&C.size_t':
+            type_name = '&u64'
+
+        return name + ' ' + type_name
+
+    sig = ', '.join(map(map_param, args[1:]))
+
+    template = 'pub fn ({0}) {1}({2}) {3} {{\n{4}\n}}'
+
+    ret_needs_cast = False
+    if ret == 'void':
+        ret = ''
+    else:
+        if ret in enums_cache:
+            ret_needs_cast = True
+            ret = to_v_camel_case(ret)
+        elif ret in types_cache:
+            ret = to_v_camel_case(ret)
+        else:
+            ret = c_to_v_type(ret)
+
+    def map_param2(p):
+        name, type_name = p
+        return to_v_snake_case(name)
+
+    wrapped_call_args = [recvr_name] + list(map(map_param2, args[1:]))
+    wrapped_call = 'C.' + name + '(' + ', '.join(wrapped_call_args) + ')'
+
+    if ret != '':
+        if ret_needs_cast:
+            wrapped_call = ret + '(' + wrapped_call + ')'
+        wrapped_call = '\treturn ' + wrapped_call
+    else:
+        wrapped_call = '\t' + wrapped_call
+
+    r = template.format(
+        receiver,
+        method_name,
+        sig,
+        ret,
+        wrapped_call
+    )
+    
+    return r
+
 def v_fmt(src, dst):
 	cmd = ['v', 'fmt', src, '-w', dst]
 	subprocess.run(cmd)
 
 FAKE_LIBC_PATH = '/home/vagrant/pycparser/utils/fake_libc_include/'
 
-def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
+def gen_wrapper(filepath, outpath, enums_cache=(), types_cache=(), only_funcs=False):
     import ntpath
 
     root = os.getcwd()
@@ -371,19 +475,29 @@ def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
 	    out += '\n'.join(map(lambda x: '#flag ' + x, FLAGS))
     out += '\n#include "{0}"'.format(filename_no_ext + '.h') + '\n'
 
+    # C func def
     for d in v.defs:
         if only_funcs and d[0] != 'func': continue
         out += '\n\n' + CODEGEN[d[0]](d)
+
+    if filename_no_ext != 'sk_types':
+        # v methods
+        for d in v.defs:
+            if only_funcs and d[0] != 'func': continue
+            m = gen_v_method(d, enums_cache, types_cache)
+            if m is None: continue
+            out += '\n\n' + m
+            
 
     outfile_tmp = filename_no_ext + '_tmp' + '.v'
     outfile = filename_no_ext + '.v'
     outfile_tmp_path = os.path.join(outpath, outfile_tmp)
     outfile_path = os.path.join(outpath, outfile)
     
-    with open(outfile_tmp_path, 'w') as outfile:
+    with open(outfile_path, 'w') as outfile:
         outfile.write(out)
-        v_fmt(outfile_tmp_path, outfile_path)
-    os.remove(outfile_tmp_path)
+        # v_fmt(outfile_tmp_path, outfile_path)
+    # os.remove(outfile_tmp_path)
 
     return v.defs
 	
@@ -403,11 +517,12 @@ if __name__ == "__main__":
     base_dir = os.getcwd()
 
     enums_cache = tuple(map(lambda c: c[1], filter(lambda d: d[0] == 'enum', defs)))
+    types_cache = tuple(x[1] for x in filter(lambda d: d[0] == 'type', defs))
 
     for t in targets:
         src = os.path.join(base_dir, 'skia/c', t + '.h')
         print('Generating: ' + t + '.v') 
-        defs2 = gen_wrapper(src, 'skia/', enums_cache=enums_cache, only_funcs=True)
+        defs2 = gen_wrapper(src, 'skia/', enums_cache, types_cache, only_funcs=True)
         
     def struct_with_enum_field(e):
         if e[0] != 'struct': return False
