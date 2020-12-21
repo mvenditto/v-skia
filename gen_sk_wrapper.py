@@ -2,6 +2,7 @@ import sys
 from inflection import camelize, underscore
 from pycparser import parse_file, c_ast
 import os
+import subprocess
 
 """
 This is a (very) messy script to generate v wrappers from skia C headers
@@ -10,6 +11,7 @@ Known issues:
 	- didn't found a way to access C enums, until this is fixed (or i find a way, if i'm missing something)
 	  some stuff enums are translated to v consts and structures and funcs using enums are accessed
 	  through a wrapper that use casted ints instead of the actual enum
+	- this kinda works, but its not intended to be fully-automatic. some manual processing could still be required
 """
 
 C_TO_V_TYPES = {
@@ -333,8 +335,16 @@ CODEGEN = {
     'func': gen_func
 }
 
+def v_fmt(src, dst):
+	cmd = ['v', 'fmt', src, '-w', dst]
+	subprocess.run(cmd)
+
+FAKE_LIBC_PATH = '/home/vagrant/pycparser/utils/fake_libc_include/'
+
 def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
     import ntpath
+
+    root = os.getcwd()
     
     ast = parse_file(
         filepath,
@@ -342,8 +352,8 @@ def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
         cpp_path='gcc',
         cpp_args=[
             '-E',
-            '-I/vagrant/v-skia/skia/c/',
-            '-I/vagrant/v-skia/pycparser/utils/fake_libc_include/'
+            '-I' + os.path.join(root, 'skia/c/'),
+            '-I' + FAKE_LIBC_PATH
         ])
 
     # ast.show()
@@ -365,21 +375,22 @@ def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
         if only_funcs and d[0] != 'func': continue
         out += '\n\n' + CODEGEN[d[0]](d)
 
+    outfile_tmp = filename_no_ext + '_tmp' + '.v'
     outfile = filename_no_ext + '.v'
+    outfile_tmp_path = os.path.join(outpath, outfile_tmp)
+    outfile_path = os.path.join(outpath, outfile)
     
-    with open(os.path.join(outpath, outfile), 'w') as outfile:
+    with open(outfile_tmp_path, 'w') as outfile:
         outfile.write(out)
+        v_fmt(outfile_tmp_path, outfile_path)
+    os.remove(outfile_tmp_path)
 
     return v.defs
 	
-def v_fmt(src):
-	pass
-
 if __name__ == "__main__":
         
-    defs = gen_wrapper('/vagrant/v-skia/skia/c/sk_types.h',
-                '/vagrant/v-skia/skia/')
-
+    defs = gen_wrapper('skia/c/sk_types.h', 'skia/')
+    
     targets = (
         'sk_image',
         'sk_canvas',
@@ -389,20 +400,15 @@ if __name__ == "__main__":
         'sk_surface'
     )
 
-    base_dir = '/vagrant/v-skia/skia/'
+    base_dir = os.getcwd()
 
     enums_cache = tuple(map(lambda c: c[1], filter(lambda d: d[0] == 'enum', defs)))
 
     for t in targets:
-        src = os.path.join(base_dir, 'c', t + '.h')
+        src = os.path.join(base_dir, 'skia/c', t + '.h')
         print('Generating: ' + t + '.v') 
-        defs2 = gen_wrapper(src, base_dir, enums_cache=enums_cache, only_funcs=True)
+        defs2 = gen_wrapper(src, 'skia/', enums_cache=enums_cache, only_funcs=True)
         
-        for f in defs2:
-            if f[0] != 'func': continue
-            # print(len(list(filter(lambda a: a[1] in enums_cache, f[3]))))
-
-    
     def struct_with_enum_field(e):
         if e[0] != 'struct': return False
         for a in e[2]:
@@ -430,8 +436,8 @@ if __name__ == "__main__":
             return '\tx->{1} = ({0}){1};'.format(f_type, f_name)
         return '\tx->' + f_name + ' = ' + f_name + ';'
 
-    with open("/vagrant/v-skia/skia/c/structs_factory.h", 'w') as w:
-        with open("/vagrant/v-skia/skia/structs_factory.v", 'w') as v:
+    with open("skia/c/structs_factory.h", 'w') as w:
+        with open("skia/structs_factory.v", 'w') as v:
             w.write('#include "sk_types.h"\n')
             w.write('#include <stdlib.h>\n')
 

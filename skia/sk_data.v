@@ -1,18 +1,15 @@
 module skia
 
-
 #include "sk_data.h"
-
-
 fn C.sk_data_new_empty(a0 C.void) &C.sk_data_t
 
 fn C.sk_data_new_with_copy(src voidptr, length C.size_t) &C.sk_data_t
 
 fn C.sk_data_new_subset(src &C.sk_data_t, offset C.size_t, length C.size_t) &C.sk_data_t
 
-fn C.sk_data_ref(a0 &C.sk_data_t) 
+fn C.sk_data_ref(a0 &C.sk_data_t)
 
-fn C.sk_data_unref(a0 &C.sk_data_t) 
+fn C.sk_data_unref(a0 &C.sk_data_t)
 
 fn C.sk_data_get_size(a0 &C.sk_data_t) C.size_t
 

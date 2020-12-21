@@ -1,9 +1,6 @@
 module skia
 
-
 #include "sk_image.h"
-
-
 fn C.sk_image_new_raster_copy(a0 &C.sk_imageinfo_t, pixels voidptr, row_bytes C.size_t) &C.sk_image_t
 
 fn C.sk_image_new_raster_copy_with_pixmap(pixmap &C.sk_pixmap_t) &C.sk_image_t
@@ -32,9 +29,9 @@ fn C.sk_image_make_raster_image(cimage &C.sk_image_t) &C.sk_image_t
 
 fn C.sk_image_make_with_filter(cimage &C.sk_image_t, filter &C.sk_imagefilter_t, subset &C.sk_irect_t, clip_bounds &C.sk_irect_t, out_subset &C.sk_irect_t, out_offset &C.sk_ipoint_t) &C.sk_image_t
 
-fn C.sk_image_ref(a0 &C.sk_image_t) 
+fn C.sk_image_ref(a0 &C.sk_image_t)
 
-fn C.sk_image_unref(a0 &C.sk_image_t) 
+fn C.sk_image_unref(a0 &C.sk_image_t)
 
 fn C.sk_image_get_width(a0 &C.sk_image_t) int
 
