@@ -351,9 +351,9 @@ CODEGEN = {
     'func': gen_func
 }
 
-def gen_v_method(func, enums_cache, types_cache):
+def gen_v_method(func, scope_type, enums_cache):
     _, name, ret, args = func
-    if len(args) <= 0:
+    if len(args) < 1:
         print('warn: no args, at least receiver needed to gen method.')
         return None
 
@@ -365,7 +365,15 @@ def gen_v_method(func, enums_cache, types_cache):
         print('skip: unmanaged prefix gr_')
         return None
 
+    if any(list(filter(lambda x: '[]' in x[1], args))):
+        print('skip: unmanaged arg type')
+        return None
+    
     recvr_type = args[0][1]
+
+    if not scope_type in recvr_type:
+        print('skip')
+        return None
 
     if not recvr_type.startswith('sk_'):
         # print("skip. '{0}' not a skia type".format(recvr_type))
@@ -379,24 +387,33 @@ def gen_v_method(func, enums_cache, types_cache):
     method_name = '_'.join(name_toks[2:])
     op = name_toks[2]
 
-    if op not in ('get', 'set', 'is', 'can', 'unref', 'clone', 'delete'):
+    """
+    if op not in (
+            'get',
+            'set',
+            'is',
+            'can',
+            'unref',
+            'clone',
+            'delete',
+            'draw',
+            'new'
+        ):
         return None
-
+    """
+    
     def map_param(p):
         name, type_name = p
         name = to_v_snake_case(name)
-        
         if type_name in enums_cache:
             type_name = to_v_camel_case(type_name)
-        elif type_name in types_cache:
-            type_name = to_v_camel_case(type_name)
+        elif type_name == 'size_t':
+            type_name = 'u64'
+        elif type_name == 'size_t*':
+            type_name = '&u64'
         else:
             type_name = c_to_v_type(type_name)
-        if type_name == 'C.size_t':
-            type_name = 'u64'
-        elif type_name == '&C.size_t':
-            type_name = '&u64'
-
+            
         return name + ' ' + type_name
 
     sig = ', '.join(map(map_param, args[1:]))
@@ -409,8 +426,6 @@ def gen_v_method(func, enums_cache, types_cache):
     else:
         if ret in enums_cache:
             ret_needs_cast = True
-            ret = to_v_camel_case(ret)
-        elif ret in types_cache:
             ret = to_v_camel_case(ret)
         else:
             ret = c_to_v_type(ret)
@@ -445,7 +460,7 @@ def v_fmt(src, dst):
 
 FAKE_LIBC_PATH = '/home/vagrant/pycparser/utils/fake_libc_include/'
 
-def gen_wrapper(filepath, outpath, enums_cache=(), types_cache=(), only_funcs=False):
+def gen_wrapper(filepath, outpath, enums_cache=(), only_funcs=False):
     import ntpath
 
     root = os.getcwd()
@@ -484,7 +499,7 @@ def gen_wrapper(filepath, outpath, enums_cache=(), types_cache=(), only_funcs=Fa
         # v methods
         for d in v.defs:
             if only_funcs and d[0] != 'func': continue
-            m = gen_v_method(d, enums_cache, types_cache)
+            m = gen_v_method(d, filename_no_ext, enums_cache)
             if m is None: continue
             out += '\n\n' + m
             
@@ -517,12 +532,16 @@ if __name__ == "__main__":
     base_dir = os.getcwd()
 
     enums_cache = tuple(map(lambda c: c[1], filter(lambda d: d[0] == 'enum', defs)))
+
     types_cache = tuple(x[1] for x in filter(lambda d: d[0] == 'type', defs))
+
+    for t in types_cache:
+        C_TO_V_TYPES[t] = to_v_camel_case(t)
 
     for t in targets:
         src = os.path.join(base_dir, 'skia/c', t + '.h')
         print('Generating: ' + t + '.v') 
-        defs2 = gen_wrapper(src, 'skia/', enums_cache, types_cache, only_funcs=True)
+        defs2 = gen_wrapper(src, 'skia/', enums_cache, only_funcs=True)
         
     def struct_with_enum_field(e):
         if e[0] != 'struct': return False

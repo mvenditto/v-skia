@@ -28,6 +28,14 @@ fn C.sk_data_new_with_proc(ptr voidptr, length C.size_t, proc C.sk_data_release_
 
 fn C.sk_data_new_uninitialized(size C.size_t) &C.sk_data_t
 
+pub fn (d &C.sk_data_t) new_subset(offset u64, length u64) &C.sk_data_t {
+	return C.sk_data_new_subset(d, offset, length)
+}
+
+pub fn (d &C.sk_data_t) ref()  {
+	C.sk_data_ref(d)
+}
+
 pub fn (d &C.sk_data_t) unref()  {
 	C.sk_data_unref(d)
 }

@@ -16,9 +16,9 @@ fn C.sk_paint_is_antialias(a0 &C.sk_paint_t) bool
 
 fn C.sk_paint_set_antialias(a0 &C.sk_paint_t, a1 bool) 
 
-fn C.sk_paint_get_color(a0 &C.sk_paint_t) C.sk_color_t
+fn C.sk_paint_get_color(a0 &C.sk_paint_t) SkColor
 
-fn C.sk_paint_set_color(a0 &C.sk_paint_t, a1 C.sk_color_t) 
+fn C.sk_paint_set_color(a0 &C.sk_paint_t, a1 SkColor) 
 
 fn C.sk_paint_get_style(a0 &C.sk_paint_t) C.sk_paint_style_t
 
@@ -168,6 +168,12 @@ pub fn (p &C.sk_paint_t) delete()  {
 	C.sk_paint_delete(p)
 }
 
+/*
+pub fn (p &C.sk_paint_t) reset()  {
+	C.sk_paint_reset(p)
+}
+*/
+
 pub fn (p &C.sk_paint_t) is_antialias() bool {
 	return C.sk_paint_is_antialias(p)
 }
@@ -176,7 +182,7 @@ pub fn (p &C.sk_paint_t) set_antialias(a1 bool)  {
 	C.sk_paint_set_antialias(p, a1)
 }
 
-pub fn (p &C.sk_paint_t) get_color() C.sk_color_t {
+pub fn (p &C.sk_paint_t) get_color() SkColor {
 	return C.sk_paint_get_color(p)
 }
 
@@ -336,15 +342,17 @@ pub fn (p &C.sk_paint_t) set_text_skew_x(skew f32)  {
 	C.sk_paint_set_text_skew_x(p, skew)
 }
 
+pub fn (p &C.sk_paint_t) break_text(text voidptr, length u64, max_width f32, measured_width &f32) C.size_t {
+	return C.sk_paint_break_text(p, text, length, max_width, measured_width)
+}
+
+pub fn (p &C.sk_paint_t) measure_text(text voidptr, length u64, cbounds &C.sk_rect_t) f32 {
+	return C.sk_paint_measure_text(p, text, length, cbounds)
+}
+
 pub fn (p &C.sk_paint_t) get_text_path(text voidptr, length u64, x f32, y f32) &C.sk_path_t {
 	return C.sk_paint_get_text_path(p, text, length, x, y)
 }
-
-/*
-pub fn (p &C.sk_paint_t) get_pos_text_path(text voidptr, length u64, pos C.[]sk_point_t) &C.sk_path_t {
-	return C.sk_paint_get_pos_text_path(p, text, length, pos)
-}
-*/
 
 pub fn (p &C.sk_paint_t) get_fontmetrics(cfontmetrics &C.sk_fontmetrics_t, scale f32) f32 {
 	return C.sk_paint_get_fontmetrics(p, cfontmetrics, scale)
@@ -426,30 +434,18 @@ pub fn (p &C.sk_paint_t) get_fill_path(src &C.sk_path_t, dst &C.sk_path_t, cull_
 	return C.sk_paint_get_fill_path(p, src, dst, cull_rect, res_scale)
 }
 
+pub fn (p &C.sk_paint_t) text_to_glyphs(text voidptr, byte_length u64, glyphs &u16) int {
+	return C.sk_paint_text_to_glyphs(p, text, byte_length, glyphs)
+}
+
+pub fn (p &C.sk_paint_t) contains_text(text voidptr, byte_length u64) bool {
+	return C.sk_paint_contains_text(p, text, byte_length)
+}
+
+pub fn (p &C.sk_paint_t) count_text(text voidptr, byte_length u64) int {
+	return C.sk_paint_count_text(p, text, byte_length)
+}
+
 pub fn (p &C.sk_paint_t) get_text_widths(text voidptr, byte_length u64, widths &f32, bounds &C.sk_rect_t) int {
 	return C.sk_paint_get_text_widths(p, text, byte_length, widths, bounds)
 }
-
-/*
-pub fn (p &C.sk_paint_t) get_text_intercepts(text voidptr, byte_length u64, x f32, y f32, bounds C.[]float, intervals &f32) int {
-	return C.sk_paint_get_text_intercepts(p, text, byte_length, x, y, bounds, intervals)
-}
-*/
-
-/*
-pub fn (p &C.sk_paint_t) get_pos_text_intercepts(text voidptr, byte_length u64, pos &C.sk_point_t, bounds C.[]float, intervals &f32) int {
-	return C.sk_paint_get_pos_text_intercepts(p, text, byte_length, pos, bounds, intervals)
-}
-*/
-
-/*
-pub fn (p &C.sk_paint_t) get_pos_text_h_intercepts(text voidptr, byte_length u64, xpos &f32, y f32, bounds C.[]float, intervals &f32) int {
-	return C.sk_paint_get_pos_text_h_intercepts(p, text, byte_length, xpos, y, bounds, intervals)
-}
-*/
-
-/*
-pub fn (p &C.sk_paint_t) get_pos_text_blob_intercepts(blob &C.sk_textblob_t, bounds C.[]float, intervals &f32) int {
-	return C.sk_paint_get_pos_text_blob_intercepts(p, blob, bounds, intervals)
-}
-*/

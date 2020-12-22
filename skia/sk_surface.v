@@ -44,12 +44,24 @@ pub fn (s &C.sk_surface_t) unref()  {
 	C.sk_surface_unref(s)
 }
 
+pub fn (s &C.sk_surface_t) get_canvas() &C.sk_canvas_t {
+	return C.sk_surface_get_canvas(s)
+}
+
 pub fn (s &C.sk_surface_t) new_image_snapshot() &C.sk_image_t {
 	return C.sk_surface_new_image_snapshot(s)
 }
 
-pub fn (s &C.sk_surface_t) get_canvas() &C.sk_canvas_t {
-	return C.sk_surface_get_canvas(s)
+pub fn (s &C.sk_surface_t) draw(canvas &C.sk_canvas_t, x f32, y f32, paint &C.sk_paint_t)  {
+	C.sk_surface_draw(s, canvas, x, y, paint)
+}
+
+pub fn (s &C.sk_surface_t) peek_pixels(pixmap &C.sk_pixmap_t) bool {
+	return C.sk_surface_peek_pixels(s, pixmap)
+}
+
+pub fn (s &C.sk_surface_t) read_pixels(dst_info &C.sk_imageinfo_t, dst_pixels voidptr, dst_row_bytes u64, src_x int, src_y int) bool {
+	return C.sk_surface_read_pixels(s, dst_info, dst_pixels, dst_row_bytes, src_x, src_y)
 }
 
 pub fn (s &C.sk_surface_t) get_props() &C.sk_surfaceprops_t {

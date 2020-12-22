@@ -20,6 +20,7 @@ struct C.sk_nvrefcnt_t {}
 pub type SkNvrefcnt = C.sk_nvrefcnt_t
 
 pub type SkColor = u32
+pub struct C.sk_color_t { }
 
 pub type SkPmcolor = u32
 pub struct C.sk_pmcolor_t { }
